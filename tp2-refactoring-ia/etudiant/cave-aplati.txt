@@ -1,0 +1,159 @@
+=== docs/REGLES.md ===
+# Règles de mise à jour de la cave (CaveManager)
+
+Chaque mois, `Cellar.ageOneMonth()` met à jour chaque bouteille.
+Une bouteille a un nom, un nombre de mois restants (`monthsLeft`) et une cote (`rating`).
+
+## Règles générales
+- Chaque mois, `monthsLeft` diminue de 1, sauf pour la Cuvée du Fondateur.
+- Une fois l'échéance dépassée (`monthsLeft` négatif après la mise à jour), la cote évolue deux fois plus vite.
+- La cote d'une bouteille normale ne devient jamais négative du fait de la mise à jour.
+- La cote d'une bouteille ne dépasse jamais 60 du fait de la mise à jour.
+
+## Bouteilles normales
+- La cote diminue de 1 par mois, de 2 une fois l'échéance dépassée.
+
+## Pomerol de garde (nom exact)
+- La cote augmente de 1 par mois, de 2 une fois l'échéance dépassée.
+
+## Cuvée du Fondateur (nom exact)
+- Ne périme jamais et ne perd jamais de cote : ni `monthsLeft` ni `rating` ne changent.
+- Sa cote vaut 100.
+
+## Primeur (nom commençant par « Primeur »)
+- La cote augmente de 1 par mois quand il reste plus de 14 mois avant la mise à jour.
+- Elle augmente de 2 par mois quand il reste de 8 à 14 mois.
+- Elle augmente de 3 par mois quand il reste 7 mois ou moins.
+- Une fois la livraison passée (`monthsLeft` négatif après la mise à jour), la cote tombe à 0.
+
+=== src/main/java/fr/cavemanager/Bottle.java ===
+001 | package fr.cavemanager;
+002 | 
+003 | public class Bottle {
+004 |     public String name;
+005 |     public int monthsLeft;
+006 |     public int rating;
+007 | 
+008 |     public Bottle(String name, int monthsLeft, int rating) {
+009 |         this.name = name;
+010 |         this.monthsLeft = monthsLeft;
+011 |         this.rating = rating;
+012 |     }
+013 | 
+014 |     @Override
+015 |     public String toString() {
+016 |         return name + ", " + monthsLeft + ", " + rating;
+017 |     }
+018 | }
+
+=== src/main/java/fr/cavemanager/Cellar.java ===
+001 | package fr.cavemanager;
+002 | 
+003 | public class Cellar {
+004 |     public Bottle[] bottles;
+005 | 
+006 |     public Cellar(Bottle[] bottles) {
+007 |         this.bottles = bottles;
+008 |     }
+009 | 
+010 |     public void ageOneMonth() {
+011 |         for (int i = 0; i < bottles.length; i++) {
+012 |             Bottle it = bottles[i];
+013 |             String n = it.name;
+014 |             int m = it.monthsLeft;
+015 | 
+016 |             if (n.equals("Pomerol de garde")) {
+017 |                 if (it.rating < 60) {
+018 |                     it.rating = it.rating + 1;
+019 |                 }
+020 |             } else if (n.startsWith("Primeur")) {
+021 |                 // cote max : 50
+022 |                 if (m > 14 && it.rating < 60) {
+023 |                     it.rating = Math.min(60, it.rating + 1);
+024 |                 }
+025 |                 if (m > 7 && m < 15) {
+026 |                     if (it.rating < 60) {
+027 |                         it.rating = Math.min(60, it.rating + 2);
+028 |                     }
+029 |                 }
+030 |                 if (m < 8) {
+031 |                     if (it.rating < 60) {
+032 |                         it.rating = Math.min(60, it.rating + 3);
+033 |                     }
+034 |                 }
+035 |             } else {
+036 |                 if (!n.equals("Cuvée du Fondateur")) {
+037 |                     if (it.rating > 0) {
+038 |                         it.rating = it.rating - 1;
+039 |                     }
+040 |                 }
+041 |             }
+042 | 
+043 |             // TODO supprimer, plus utilisé
+044 |             if (!n.equals("Cuvée du Fondateur")) {
+045 |                 it.monthsLeft = m - 1;
+046 |             }
+047 | 
+048 |             if (it.monthsLeft < 0) {
+049 |                 if (!n.equals("Pomerol de garde") && !n.startsWith("Primeur")) {
+050 |                     if (!n.equals("Cuvée du Fondateur")) {
+051 |                         if (it.rating > 0) {
+052 |                             it.rating = it.rating - 1;
+053 |                         }
+054 |                     }
+055 |                 } else {
+056 |                     if (n.startsWith("Primeur")) {
+057 |                         it.rating = 0;
+058 |                     } else {
+059 |                         if (it.rating < 60) {
+060 |                             it.rating = it.rating + 1;
+061 |                         }
+062 |                     }
+063 |                 }
+064 |             }
+065 |         }
+066 |     }
+067 | }
+
+=== src/main/java/fr/cavemanager/Main.java ===
+001 | package fr.cavemanager;
+002 | 
+003 | public class Main {
+004 |     private static final int DEFAULT_MONTHS = 10;
+005 | 
+006 |     private static final String[] INITIAL_DATA = {
+007 |         "Côtes du Rhône;5;20",
+008 |         "Pomerol de garde;8;25",
+009 |         "Cuvée du Fondateur;0;100",
+010 |         "Cuvée du Fondateur;-1;100",
+011 |         "Primeur Pauillac;15;20",
+012 |         "Primeur Pauillac;10;49",
+013 |         "Primeur Pauillac;5;49",
+014 |         "Beaujolais nouveau;2;7",
+015 |         "Muscadet;0;6",
+016 |         "Entamé Chablis;3;6",
+017 |         "Bio Chinon;4;10",
+018 |         "Vin de pays;0;3"
+019 |     };
+020 | 
+021 |     public static void main(String[] args) {
+022 |         int months = args.length > 0 ? Integer.parseInt(args[0]) : DEFAULT_MONTHS;
+023 |         Cellar cellar = new Cellar(initialBottles());
+024 |         for (int month = 0; month <= months; month++) {
+025 |             System.out.println("Mois " + month);
+026 |             for (Bottle bottle : cellar.bottles) {
+027 |                 System.out.println("  " + bottle);
+028 |             }
+029 |             cellar.ageOneMonth();
+030 |         }
+031 |     }
+032 | 
+033 |     private static Bottle[] initialBottles() {
+034 |         Bottle[] bottles = new Bottle[INITIAL_DATA.length];
+035 |         for (int i = 0; i < bottles.length; i++) {
+036 |             String[] fields = INITIAL_DATA[i].split(";");
+037 |             bottles[i] = new Bottle(fields[0], Integer.parseInt(fields[1]), Integer.parseInt(fields[2]));
+038 |         }
+039 |         return bottles;
+040 |     }
+041 | }

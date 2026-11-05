@@ -1,0 +1,14 @@
+# Extraction de test du projet (cave/, outils/) : on ne publie que le zip, la fiche et le suivi
+/cave/
+/outils/
+
+# Fichiers générés ou locaux
+.suivi/
+target/
+__pycache__/
+*.pyc
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db

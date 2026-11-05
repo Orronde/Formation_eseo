@@ -1,0 +1,5 @@
+# Seul le dossier etudiant/ est destiné à être publié.
+# Tout le reste (corrigé, solution, guidelines de référence, outils enseignant, sources du vérificateur) reste local.
+/*
+!/etudiant/
+!/.gitignore
